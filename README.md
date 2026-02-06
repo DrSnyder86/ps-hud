@@ -1,3 +1,9 @@
+# Archiving Older Repos (Focus on ps-mdt v3)
+
+To help streamline things a bit around here (for the little work we actually do 😅), I’m going to be archiving the repos listed below. This doesn’t mean they’re broken or unusable, it just means we won’t be pushing any further updates to them for now.
+
+Our main focus moving forward will be ps-mdt v3 and its dependencies.
+
 ![Project Sloth GitHub Project PS-HUD Banner](https://user-images.githubusercontent.com/91661118/170896135-fead50a0-2a4b-432d-8469-038acfb4f2f3.png)
 
 ### ps-hud
