@@ -73,19 +73,28 @@ local function CinematicShow(bool)
     end
 end
 
+-- local function hasHarness()
+--     local ped = PlayerPedId()
+--     if not IsPedInAnyVehicle(ped, false) then return end
+
+--     local _harness = false
+--     local hasHarness = exports['qb-smallresources']:HasHarness()
+--     if hasHarness then
+--         _harness = true
+--     else
+--         _harness = false
+--     end
+
+--     harness = _harness
+-- end
+
+-- qbox fix
 local function hasHarness()
     local ped = PlayerPedId()
-    if not IsPedInAnyVehicle(ped, false) then return end
+    if not IsPedInAnyVehicle(ped, false) then return false end
 
-    local _harness = false
-    local hasHarness = exports['qb-smallresources']:HasHarness()
-    if hasHarness then
-        _harness = true
-    else
-        _harness = false
-    end
-
-    harness = _harness
+    local count = exports.ox_inventory:Search('count', 'harness')
+    return count and count > 0
 end
 
 local function loadSettings()
@@ -824,7 +833,17 @@ local prevVehicleStats = {
     nil, --[7] showAltitude
     nil, --[8] showSeatbelt
     nil, --[9] showSquareBorder
-    nil --[10] showCircleBorder
+    nil, --[10] showCircleBorder
+    nil, --[11] rpm
+    nil, --[12] gear
+    nil, --[13] engineHealth
+    nil, --[14] engineOn
+    nil, --[15] indicatorLights
+    nil, --[16] lightsOn
+    nil, --[17] highbeamsOn
+    nil, --[18] cruise
+    nil, --[19] nitroActive
+    nil --[20] speedUnit
 }
 
 local function updateShowVehicleHud(show)
@@ -860,6 +879,16 @@ local function updateVehicleHud(data)
             showSeatbelt = data[8],
             showSquareB = data[9],
             showCircleB = data[10],
+            rpm = data[11],
+            gear = data[12],
+            engine = data[13],
+            engineOn = data[14],
+            indicatorLights = data[15],
+            lightsOn = data[16],
+            highbeamsOn = data[17],
+            cruise = data[18],
+            nitroActive = data[19],
+            speedUnit = data[20],
         })
     end
 end
@@ -867,22 +896,45 @@ end
 local lastFuelUpdate = 0
 local lastFuelCheck = {}
 
+-- local function getFuelLevel(vehicle)
+--     local updateTick = GetGameTimer()
+--     if (updateTick - lastFuelUpdate) > 2000 then
+--         lastFuelUpdate = updateTick
+--         lastFuelCheck = math.floor(exports[Config.FuelScript]:GetFuel(vehicle))
+--     end
+--     return lastFuelCheck
+-- end
+-- ox_fuel edit
 local function getFuelLevel(vehicle)
     local updateTick = GetGameTimer()
     if (updateTick - lastFuelUpdate) > 2000 then
         lastFuelUpdate = updateTick
-        lastFuelCheck = math.floor(exports[Config.FuelScript]:GetFuel(vehicle))
+        lastFuelCheck = math.floor(GetVehicleFuelLevel(vehicle))
     end
     return lastFuelCheck
 end
 
+local function getVehicleGear(vehicle)
+    local gear = GetVehicleCurrentGear(vehicle)
+    local speedVector = GetEntitySpeedVector(vehicle, true)
+
+    if speedVector.y < -0.5 then
+        return 'R'
+    end
+
+    if gear <= 0 then
+        return 'P'
+    end
+
+    return tostring(gear)
+end
 -- HUD Update loop
 
 CreateThread(function()
     local wasInVehicle = false
     while true do
         if LocalPlayer.state.isLoggedIn then
-            Wait(500)
+            Wait(IsPedInAnyVehicle(PlayerPedId(), false) and 150 or 500)
 
             local show = true
             local player = PlayerPedId()
@@ -970,6 +1022,9 @@ CreateThread(function()
                 end
 
                 wasInVehicle = true
+                local speed = math.ceil(GetEntitySpeed(vehicle) * speedMultiplier)
+                local engineHealth = GetVehicleEngineHealth(vehicle) / 10
+                local _, lightsOn, highbeamsOn = GetVehicleLightsState(vehicle)
 
                 updatePlayerHud({
                     show,
@@ -991,8 +1046,8 @@ CreateThread(function()
                     nitroActive,
                     harness,
                     hp,
-                    math.ceil(GetEntitySpeed(vehicle) * speedMultiplier),
-                    (GetVehicleEngineHealth(vehicle) / 10),
+                    speed,
+                    engineHealth,
                     Menu.isCineamticModeChecked,
                     dev,
                 })
@@ -1001,13 +1056,23 @@ CreateThread(function()
                     show,
                     IsPauseMenuActive(),
                     seatbeltOn,
-                    math.ceil(GetEntitySpeed(vehicle) * speedMultiplier),
+                    speed,
                     getFuelLevel(vehicle),
                     math.ceil(GetEntityCoords(player).z * 0.5),
                     showAltitude,
                     showSeatbelt,
                     showSquareB,
                     showCircleB,
+                    math.floor(GetVehicleCurrentRpm(vehicle) * 100),
+                    getVehicleGear(vehicle),
+                    engineHealth,
+                    GetIsVehicleEngineRunning(vehicle),
+                    GetVehicleIndicatorLights(vehicle),
+                    lightsOn,
+                    highbeamsOn,
+                    cruiseOn,
+                    nitroActive,
+                    Config.UseMPH and 'MPH' or 'KPH',
                 })
                 showAltitude = false
                 showSeatbelt = true
@@ -1043,13 +1108,39 @@ function isElectric(vehicle)
     return noBeeps
 end
 
+-- -- Low fuel
+-- CreateThread(function()
+--     while true do
+--         if LocalPlayer.state.isLoggedIn then
+--             local ped = PlayerPedId()
+--             if IsPedInAnyVehicle(ped, false) and not IsThisModelABicycle(GetEntityModel(GetVehiclePedIsIn(ped, false))) and not isElectric(GetVehiclePedIsIn(ped, false)) then
+--                 if exports[Config.FuelScript]:GetFuel(GetVehiclePedIsIn(ped, false)) <= 20 then -- At 20% Fuel Left
+--                     if Menu.isLowFuelChecked then
+--                         TriggerServerEvent("InteractSound_SV:PlayOnSource", "pager", 0.10)
+--                         QBCore.Functions.Notify(Lang:t("notify.low_fuel"), "error")
+--                         Wait(60000) -- repeats every 1 min until empty
+--                     end
+--                 end
+--             end
+--         end
+--         Wait(10000)
+--     end
+-- end)
+
 -- Low fuel
 CreateThread(function()
     while true do
         if LocalPlayer.state.isLoggedIn then
             local ped = PlayerPedId()
-            if IsPedInAnyVehicle(ped, false) and not IsThisModelABicycle(GetEntityModel(GetVehiclePedIsIn(ped, false))) and not isElectric(GetVehiclePedIsIn(ped, false)) then
-                if exports[Config.FuelScript]:GetFuel(GetVehiclePedIsIn(ped, false)) <= 20 then -- At 20% Fuel Left
+            local vehicle = GetVehiclePedIsIn(ped, false)
+
+            if vehicle ~= 0
+                and not IsThisModelABicycle(GetEntityModel(vehicle))
+                and not isElectric(vehicle) then
+
+                local fuel = GetVehicleFuelLevel(vehicle)
+
+                if fuel <= 20 then -- At 20% Fuel Left
                     if Menu.isLowFuelChecked then
                         TriggerServerEvent("InteractSound_SV:PlayOnSource", "pager", 0.10)
                         QBCore.Functions.Notify(Lang:t("notify.low_fuel"), "error")
@@ -1096,6 +1187,26 @@ end)
 
 -- Harness Check / Seatbelt Check
 
+-- CreateThread(function()
+--     while true do
+--         Wait(1500)
+--         if LocalPlayer.state.isLoggedIn then
+--             local ped = PlayerPedId()
+--             if IsPedInAnyVehicle(ped, false) then
+--                 hasHarness()
+--                 local veh = GetEntityModel(GetVehiclePedIsIn(ped, false))
+--                 if seatbeltOn ~= true and IsThisModelACar(veh) then
+--                     TriggerEvent("InteractSound_CL:PlayOnOne", "beltalarm", 0.6)
+--                 end
+--             end
+--         end
+--     end
+-- end)
+
+-- Updated belt check
+local lastAlarmTime = 0
+local alarmCooldown = 60000 -- 60 seconds (in ms)
+
 CreateThread(function()
     while true do
         Wait(1500)
@@ -1103,15 +1214,27 @@ CreateThread(function()
             local ped = PlayerPedId()
             if IsPedInAnyVehicle(ped, false) then
                 hasHarness()
-                local veh = GetEntityModel(GetVehiclePedIsIn(ped, false))
-                if seatbeltOn ~= true and IsThisModelACar(veh) then
+
+                local vehicle = GetVehiclePedIsIn(ped, false)
+                local vehModel = GetEntityModel(vehicle)
+
+                -- Speed in MPH
+                local speed = GetEntitySpeed(vehicle) * 2.236936
+
+                local currentTime = GetGameTimer()
+
+                if seatbeltOn ~= true 
+                    and IsThisModelACar(vehModel) 
+                    and speed > 20 
+                    and (currentTime - lastAlarmTime) > alarmCooldown then
+                    
                     TriggerEvent("InteractSound_CL:PlayOnOne", "beltalarm", 0.6)
+                    lastAlarmTime = currentTime
                 end
             end
         end
     end
 end)
-
 
 -- Stress Gain
 
@@ -1232,7 +1355,7 @@ end)
 CreateThread(function()
     while true do
         SetRadarBigmapEnabled(false, false)
-        SetRadarZoom(1000)
+        --SetRadarZoom(1000)
         Wait(500)
     end
 end)
