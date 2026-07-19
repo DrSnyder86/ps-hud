@@ -1,7 +1,9 @@
-## ps-hud update for compatibility for ox_fuel and updated vehicle hud
+## Updated vehicle, money and weapon hud
+This version has compatibility with ox_fuel and offers a new vehicle hud, armed weapon status and cash and bank huds. 
 <p align="center">
   <img src="https://r2.fivemanage.com/image/808UIEsXbLWH.jpg" width="32%" alt="Air" />
-  <img src="https://r2.fivemanage.com/image/QyiJ0aYKsGaU.jpg" width="32%" alt="Car" />
+  <img src="https://r2.fivemanage.com/image/SanH7X9HzvY4.jpg" width="32%" alt="Car" />
+  <img src="https://r2.fivemanage.com/image/ftrN8hLKwYd0.jpg" width="32%" alt="Money" />
 </p>
 # Archiving Older Repos (Focus on ps-mdt v3)
 
