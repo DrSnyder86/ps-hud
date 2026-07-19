@@ -1,3 +1,8 @@
+## ps-hud update for compatibility for ox_fuel and updated vehicle hud
+<p align="center">
+  <img src="https://r2.fivemanage.com/image/808UIEsXbLWH.jpg" width="32%" alt="Air" />
+  <img src="https://r2.fivemanage.com/image/QyiJ0aYKsGaU.jpg" width="32%" alt="Car" />
+</p>
 # Archiving Older Repos (Focus on ps-mdt v3)
 
 To help streamline things a bit around here (for the little work we actually do 😅), I’m going to be archiving the repos listed below. This doesn’t mean they’re broken or unusable, it just means we won’t be pushing any further updates to them for now.
