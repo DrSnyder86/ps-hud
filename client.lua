@@ -2,6 +2,7 @@ local QBCore = exports['qb-core']:GetCoreObject()
 local serverId = GetPlayerServerId(PlayerId())
 local PlayerData = QBCore.Functions.GetPlayerData()
 local config = Config
+local customHud = config.CustomHud or {}
 local UIConfig = UIConfig
 local speedMultiplier = config.UseMPH and 2.23694 or 3.6
 local seatbeltOn = false
@@ -843,7 +844,8 @@ local prevVehicleStats = {
     nil, --[17] highbeamsOn
     nil, --[18] cruise
     nil, --[19] nitroActive
-    nil --[20] speedUnit
+    nil, --[20] speedUnit
+    nil --[21] vehicleName
 }
 
 local function updateShowVehicleHud(show)
@@ -889,6 +891,7 @@ local function updateVehicleHud(data)
             cruise = data[18],
             nitroActive = data[19],
             speedUnit = data[20],
+            vehicleName = data[21],
         })
     end
 end
@@ -914,6 +917,39 @@ local function getFuelLevel(vehicle)
     return lastFuelCheck
 end
 
+local vehicleNameCache = {}
+
+local function getVehicleName(vehicle)
+    local model = GetEntityModel(vehicle)
+    if vehicleNameCache[model] then return vehicleNameCache[model] end
+
+    if QBCore.Shared.Vehicles then
+        for _, vehicleData in pairs(QBCore.Shared.Vehicles) do
+            local vehicleModel = vehicleData.model
+            local vehicleModelHash = type(vehicleModel) == 'number' and vehicleModel or (vehicleModel and GetHashKey(vehicleModel))
+            if vehicleModelHash == model then
+                local name = vehicleData.name or vehicleData.model
+                local brand = vehicleData.brand
+                vehicleNameCache[model] = brand and brand ~= '' and (brand .. ' ' .. name) or name
+                return vehicleNameCache[model]
+            end
+        end
+    end
+
+    local displayName = GetDisplayNameFromVehicleModel(model)
+    local localizedName = displayName and GetLabelText(displayName) or nil
+
+    if localizedName and localizedName ~= 'NULL' then
+        vehicleNameCache[model] = localizedName
+    elseif displayName and displayName ~= 'CARNOTFOUND' then
+        vehicleNameCache[model] = displayName
+    else
+        vehicleNameCache[model] = 'VEHICLE'
+    end
+
+    return vehicleNameCache[model]
+end
+
 local function getVehicleGear(vehicle)
     local gear = GetVehicleCurrentGear(vehicle)
     local speedVector = GetEntitySpeedVector(vehicle, true)
@@ -928,6 +964,114 @@ local function getVehicleGear(vehicle)
 
     return tostring(gear)
 end
+
+local prevWeaponStats = { nil, nil, nil, nil, nil, nil }
+local weaponLabelCache = {}
+
+local function getWeaponLabel(weaponHash)
+    if weaponLabelCache[weaponHash] then return weaponLabelCache[weaponHash] end
+
+    local weaponData = QBCore.Shared.Weapons and QBCore.Shared.Weapons[weaponHash]
+    if weaponData and weaponData.label then
+        weaponLabelCache[weaponHash] = weaponData.label
+        return weaponLabelCache[weaponHash]
+    end
+
+    if QBCore.Shared.Weapons then
+        for _, data in pairs(QBCore.Shared.Weapons) do
+            if data.name and GetHashKey(data.name) == weaponHash then
+                weaponLabelCache[weaponHash] = data.label or data.name
+                return weaponLabelCache[weaponHash]
+            end
+        end
+    end
+
+    weaponLabelCache[weaponHash] = 'WEAPON'
+    return weaponLabelCache[weaponHash]
+end
+
+local function updateWeaponHud(data)
+    local shouldUpdate = false
+    for index, value in ipairs(data) do
+        if prevWeaponStats[index] ~= value then
+            shouldUpdate = true
+            break
+        end
+    end
+
+    if not shouldUpdate then return end
+    prevWeaponStats = data
+
+    SendNUIMessage({
+        action = 'weapon',
+        topic = 'status',
+        show = data[1],
+        weaponName = data[2],
+        clip = data[3],
+        reserve = data[4],
+        maxClip = data[5],
+        reloading = data[6],
+    })
+end
+
+CreateThread(function()
+    while true do
+        if customHud.weaponAmmo and LocalPlayer.state.isLoggedIn then
+            local ped = PlayerPedId()
+            local weaponHash = GetSelectedPedWeapon(ped)
+            local maxClip = weaponHash ~= `WEAPON_UNARMED` and GetMaxAmmoInClip(ped, weaponHash, true) or 0
+            local showWeapon = weaponHash ~= `WEAPON_UNARMED`
+                and weaponHash ~= 0
+                and maxClip > 0
+                and not IsPauseMenuActive()
+                and not Menu.isCineamticModeChecked
+
+            if showWeapon then
+                local hasClip, clip = GetAmmoInClip(ped, weaponHash)
+                clip = hasClip and clip or 0
+                local totalAmmo = GetAmmoInPedWeapon(ped, weaponHash)
+
+                updateWeaponHud({
+                    true,
+                    getWeaponLabel(weaponHash),
+                    clip,
+                    math.max(totalAmmo - clip, 0),
+                    maxClip,
+                    IsPedReloading(ped),
+                })
+            else
+                updateWeaponHud({ false, '', 0, 0, 0, false })
+            end
+
+            Wait(100)
+        else
+            updateWeaponHud({ false, '', 0, 0, 0, false })
+            Wait(500)
+        end
+    end
+end)
+
+CreateThread(function()
+    while true do
+        if customHud.weaponAmmo then
+            HideHudComponentThisFrame(2) -- Weapon icon
+            DisplayAmmoThisFrame(false)
+        end
+
+        if customHud.vehicleName then
+            HideHudComponentThisFrame(6) -- Vehicle name
+            HideHudComponentThisFrame(8) -- Vehicle class
+        end
+
+        if customHud.money then
+            HideHudComponentThisFrame(3) -- Cash
+            HideHudComponentThisFrame(4) -- Multiplayer cash
+            HideHudComponentThisFrame(13) -- Cash change
+        end
+
+        Wait(0)
+    end
+end)
 -- HUD Update loop
 
 CreateThread(function()
@@ -1073,6 +1217,7 @@ CreateThread(function()
                     cruiseOn,
                     nitroActive,
                     Config.UseMPH and 'MPH' or 'KPH',
+                    customHud.vehicleName and getVehicleName(vehicle) or '',
                 })
                 showAltitude = false
                 showSeatbelt = true
@@ -1156,6 +1301,7 @@ end)
 -- Money HUD
 
 RegisterNetEvent('hud:client:ShowAccounts', function(type, amount)
+    if not customHud.money then return end
     if type == 'cash' then
         SendNUIMessage({
             action = 'show',
@@ -1172,9 +1318,11 @@ RegisterNetEvent('hud:client:ShowAccounts', function(type, amount)
 end)
 
 RegisterNetEvent('hud:client:OnMoneyChange', function(type, amount, isMinus)
-    cashAmount = PlayerData.money['cash']
-    bankAmount = PlayerData.money['bank']
-		if type == 'cash' and amount == 0 then return end
+    if not customHud.money or (type ~= 'cash' and type ~= 'bank') then return end
+    local currentPlayerData = QBCore.Functions.GetPlayerData()
+    cashAmount = currentPlayerData.money['cash']
+    bankAmount = currentPlayerData.money['bank']
+    if amount == 0 then return end
     SendNUIMessage({
         action = 'updatemoney',
         cash = cashAmount,
