@@ -2,10 +2,20 @@ import { writable } from 'svelte/store'
 import { capAmountToHundred } from '../types/types'
 
 type vehicleStatusType = {
+  cruise: boolean,
+  engine: number,
+  engineOn: boolean,
   fuelColor: string,
+  gear: string,
+  highbeamsOn: boolean,
+  indicatorLights: number,
   altitude: number,
   fuel: number,
+  lightsOn: boolean,
+  nitroActive: boolean,
+  rpm: number,
   speed: number,
+  speedUnit: string,
   show: boolean,
   showAltitude: boolean,
   showSeatBelt: boolean,
@@ -27,6 +37,16 @@ type vehicleHudUpdateMessageType = {
   showSeatbelt: boolean,
   showSquareB: boolean,
   showCircleB: boolean, 
+  rpm: number,
+  gear: string,
+  engine: number,
+  engineOn: boolean,
+  indicatorLights: number,
+  lightsOn: boolean,
+  highbeamsOn: boolean,
+  cruise: boolean,
+  nitroActive: boolean,
+  speedUnit: string,
 }
 
 type vehicleHudShowMessage = {
@@ -38,10 +58,20 @@ type vehicleHudShowMessage = {
 const store = () => {
 
   const vehicleStatusState: vehicleStatusType = {
+    cruise: false,
+    engine: 100,
+    engineOn: false,
     fuelColor: "#FFFFFF",
+    gear: "P",
+    highbeamsOn: false,
+    indicatorLights: 0,
     altitude: 0,
     fuel: 0,
+    lightsOn: false,
+    nitroActive: false,
+    rpm: 0,
     speed: 0,
+    speedUnit: "MPH",
     show: false,
     showAltitude: false,
     showSeatBelt: false,
@@ -68,16 +98,20 @@ const store = () => {
         state.speed = data.speed;
         state.altitude = data.altitude;
         state.fuel = capAmountToHundred(data.fuel);
-        state.showSeatBelt = data.showSeatbelt;
+        state.rpm = capAmountToHundred(data.rpm ?? 0);
+        state.gear = data.gear || "P";
+        state.engine = capAmountToHundred(data.engine ?? 100);
+        state.engineOn = data.engineOn ?? false;
+        state.indicatorLights = data.indicatorLights ?? 0;
+        state.lightsOn = data.lightsOn ?? false;
+        state.highbeamsOn = data.highbeamsOn ?? false;
+        state.cruise = data.cruise ?? false;
+        state.nitroActive = data.nitroActive ?? false;
+        state.speedUnit = data.speedUnit || "MPH";
+        state.showSeatBelt = data.showSeatbelt && !data.seatbelt;
         state.showAltitude = data.showAltitude;
         state.showSquareBorder = data.showSquareB;
         state.showCircleBorder = data.showCircleB;
-
-        if (data.seatbelt) {
-          state.showSeatBelt = false;
-        } else {
-          state.showSeatBelt = true;
-        }
 
         if (data.fuel <= 20) {
           state.fuelColor = "#ff0000";
