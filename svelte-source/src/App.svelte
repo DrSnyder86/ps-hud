@@ -10,6 +10,7 @@
   import CompassHud from './components/compass-hud.svelte';
   import MoneyHud from './components/money-hud.svelte';
   import VehicleHud from './components/vehicle-hud.svelte';
+  import WeaponHud from './components/weapon-hud.svelte';
 
   EventHandler();
 
@@ -51,6 +52,7 @@
 <main class="{DebugStore ? 'bg-dark-300' :'bg-transparent'} min-h-screen">
   {#if !$MenuStore.isCineamticModeChecked }
     <CompassHud />
+    <WeaponHud />
     <MoneyHud />
     <MetaLayout />
     <VehicleHud />

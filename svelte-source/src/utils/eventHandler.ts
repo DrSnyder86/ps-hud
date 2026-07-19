@@ -7,6 +7,7 @@ import PlayerHudStore from '../stores/playerStatusHudStore';
 import ExternalStatusStore from "../stores/externalStatusStore";
 import LayoutStore from '../stores/layoutStore';
 import VehicleHudStore from '../stores/vehicleHudStore';
+import WeaponHudStore from '../stores/weaponHudStore';
 import ColorEffectStore from '../stores/colorEffectStore';
 import ProfileStore from '../stores/profileStore';
 import { colorStoreLocalStorageName,
@@ -96,6 +97,11 @@ export function EventHandler() {
         break;
       case "updatemoney":
         MoneyHudStore.receiveUpdateMessage(event.data as any);
+        break;
+      case "weapon":
+        if (event.data.topic === "status") {
+          WeaponHudStore.receiveUpdateMessage(event.data as any);
+        }
         break;
       case "updateUISettings":
         if (!event.data.icons || !event.data.layout || !event.data.colors) {

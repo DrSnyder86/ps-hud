@@ -1,50 +1,55 @@
-import { writable } from 'svelte/store'
+import { writable } from 'svelte/store';
+
+type moneyType = 'cash' | 'bank';
 
 type moneyStatus = {
   cash: number,
   bank: number,
   amount: number,
+  type: moneyType,
   plus: boolean,
   minus: boolean,
   showCash: boolean,
   showBank: boolean,
-  showUpdate: boolean
+  showUpdate: boolean,
 }
-
-type moneyType = "cash" | "bank";
 
 type moneyShowConstantMessage = {
   cash: number,
   bank: number,
 }
+
 type moneyUpdateMessage = {
   amount: number,
   bank: number,
   cash: number,
   minus: boolean,
-  plus: boolean,
   type: moneyType,
 }
+
 type moneyShowAccountsMessage = {
   type: moneyType,
-  cash: number,
-  bank: number,
+  cash?: number,
+  bank?: number,
 }
 
 const store = () => {
-
   const moneyStatusState: moneyStatus = {
     cash: 0,
     bank: 0,
     amount: 0,
+    type: 'cash',
     plus: false,
     minus: false,
     showCash: false,
     showBank: false,
     showUpdate: false,
-  }
+  };
 
   const { subscribe, set, update } = writable(moneyStatusState);
+  let updateTimer: ReturnType<typeof setTimeout> | undefined;
+  let cashTimer: ReturnType<typeof setTimeout> | undefined;
+  let bankTimer: ReturnType<typeof setTimeout> | undefined;
 
   const methods = {
     finishShowingUpdate() {
@@ -55,7 +60,7 @@ const store = () => {
     },
     finishShowingMoney(type: moneyType) {
       update(state => {
-        if (type == "cash") {
+        if (type === 'cash') {
           state.showCash = false;
         } else {
           state.showBank = false;
@@ -64,66 +69,80 @@ const store = () => {
       });
     },
     formatMoney(value: number) {
-      const formatter = new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0,
         minimumFractionDigits: 0,
-      });
-      return formatter.format(value);
+      }).format(Math.max(0, Number(value) || 0));
+    },
+    scheduleAccountHide(type: moneyType, duration: number) {
+      if (type === 'cash') {
+        if (cashTimer) clearTimeout(cashTimer);
+        cashTimer = setTimeout(() => methods.finishShowingMoney('cash'), duration);
+      } else {
+        if (bankTimer) clearTimeout(bankTimer);
+        bankTimer = setTimeout(() => methods.finishShowingMoney('bank'), duration);
+      }
     },
     receiveShowConstantMessage(data: moneyShowConstantMessage) {
+      if (cashTimer) clearTimeout(cashTimer);
+      if (bankTimer) clearTimeout(bankTimer);
+
       update(state => {
         state.showCash = true;
         state.showBank = true;
         state.cash = data.cash;
         state.bank = data.bank;
-
         return state;
       });
     },
     receiveUpdateMessage(data: moneyUpdateMessage) {
+      if (updateTimer) clearTimeout(updateTimer);
+
       update(state => {
         state.showUpdate = true;
-        state.amount = data.amount;
+        state.amount = Math.max(0, data.amount || 0);
         state.bank = data.bank;
         state.cash = data.cash;
+        state.type = data.type;
         state.minus = data.minus;
         state.plus = !data.minus;
 
-        if (data.type == "cash") {
+        if (data.type === 'cash') {
           state.showCash = true;
-        } else if (data.type == "bank") {
+        } else {
           state.showBank = true;
         }
-        setTimeout(() => methods.finishShowingUpdate(), 3000);
-        setTimeout(() => methods.finishShowingMoney(data.type), 4000);
 
         return state;
       });
+
+      updateTimer = setTimeout(() => methods.finishShowingUpdate(), 3000);
+      methods.scheduleAccountHide(data.type, 4000);
     },
     receiveShowAccountsMessage(data: moneyShowAccountsMessage) {
       update(state => {
-        if (data.type == "cash" && !state.showCash) {
+        if (data.type === 'cash') {
           state.showCash = true;
-          state.cash = data.cash;
-        } else if (data.type == "bank" && !state.showBank) {
+          state.cash = data.cash ?? state.cash;
+        } else {
           state.showBank = true;
-          state.bank = data.bank;
+          state.bank = data.bank ?? state.bank;
         }
-        setTimeout(() => methods.finishShowingMoney(data.type), 3500);
-        
         return state;
       });
-    },
-  }
 
+      methods.scheduleAccountHide(data.type, 3500);
+    },
+  };
 
   return {
     subscribe,
     set,
     update,
-    ...methods
+    ...methods,
   };
-}
+};
 
 export default store();

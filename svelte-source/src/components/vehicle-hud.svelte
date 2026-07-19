@@ -27,16 +27,27 @@
   $: activeRpmTicks = Math.round((rpmPercent / 100) * rpmTicks.length);
   $: fuelLevel = Math.max(0, Math.min($VehicleHudStore.fuel || 0, 100));
   $: activeFuelBars = Math.ceil(fuelLevel / 20);
+  $: fuelHigh = fuelLevel > 60;
+  $: fuelMedium = fuelLevel > 40 && fuelLevel <= 60;
+  $: fuelWarning = fuelLevel > 20 && fuelLevel <= 40;
+  $: fuelLow = fuelLevel <= 20;
   $: indicatorState = $VehicleHudStore.indicatorLights || 0;
   $: leftIndicatorOn = indicatorState === 1 || indicatorState === 3;
   $: rightIndicatorOn = indicatorState === 2 || indicatorState === 3;
   $: engineWarning = $VehicleHudStore.engine <= 70 || !$VehicleHudStore.engineOn;
   $: engineDanger = $VehicleHudStore.engine <= 35;
   $: lightsActive = $VehicleHudStore.lightsOn || $VehicleHudStore.highbeamsOn;
+  $: vehicleName = $VehicleHudStore.vehicleName || (DebugStore ? 'VAPID DOMINATOR' : '');
 </script>
 
 {#if $VehicleHudStore.show || DebugStore}
   <div class="vehicle-hud" transition:fade|local="{{duration: 250}}">
+    {#if ($VehicleHudStore.showVehicleName || DebugStore) && vehicleName}
+      <div class="vehicle-name" transition:fade|local="{{duration: 220}}">
+        {vehicleName}
+      </div>
+    {/if}
+
     <div class="readout">
       <div class="speed-block">
         <div class="speed-value">{speedText}</div>
@@ -47,15 +58,19 @@
         <div class="speed-unit">{$VehicleHudStore.speedUnit}</div>
       </div>
 
-      <div class="fuel-block">
+      <div
+        class="fuel-block"
+        class:high={fuelHigh}
+        class:medium={fuelMedium}
+        class:warn={fuelWarning}
+        class:low={fuelLow}
+      >
         <span class="fuel-label">F</span>
         <div class="fuel-bars">
           {#each fuelBars as bar}
             <span
               class="fuel-bar"
               class:active={bar <= activeFuelBars}
-              class:low={fuelLevel <= 20}
-              class:warn={fuelLevel > 20 && fuelLevel <= 40}
             ></span>
           {/each}
         </div>
@@ -84,7 +99,11 @@
       <span class="status-icon" class:warning={engineWarning} class:danger={engineDanger}>
         <Fa icon={faOilCan} scale={0.78} />
       </span>
-      <span class="status-icon" class:warning={$VehicleHudStore.showSeatBelt}>
+      <span
+        class="status-icon"
+        class:warning={$VehicleHudStore.showSeatBelt}
+        class:secured={$VehicleHudStore.seatbeltOn}
+      >
         <Fa icon={faUserSlash} scale={0.78} />
       </span>
       <span class="status-icon" class:active={lightsActive} class:highbeam={$VehicleHudStore.highbeamsOn}>
@@ -114,6 +133,25 @@
     font-family: "Yantramanav", "Work Sans", Arial, sans-serif;
     pointer-events: none;
     text-shadow: 0 0 0.55rem rgba(0, 0, 0, 0.86), 0.08rem 0.08rem 0 rgba(0, 0, 0, 0.72);
+  }
+
+  .vehicle-name {
+    position: absolute;
+    top: -1.65rem;
+    right: 0;
+    max-width: 19rem;
+    box-sizing: border-box;
+    overflow: hidden;
+    padding-right: 0.65rem;
+    border-right: 0.16rem solid #65caff;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 1rem;
+    font-weight: 900;
+    line-height: 1.1;
+    text-align: right;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
   }
 
   .readout {
@@ -222,14 +260,22 @@
     box-shadow: 0 0 0.35rem rgba(244, 223, 54, 0.55);
   }
 
-  .fuel-bar.active.warn {
-    border-color: rgba(255, 180, 44, 0.82);
-    background: #f6a925;
+  .fuel-block.high .fuel-bar.active {
+    border-color: rgba(102, 220, 121, 0.86);
+    background: #63d471;
+    box-shadow: 0 0 0.35rem rgba(99, 212, 113, 0.58);
   }
 
-  .fuel-bar.active.low {
+  .fuel-block.warn .fuel-bar.active {
+    border-color: rgba(255, 180, 44, 0.82);
+    background: #f6a925;
+    box-shadow: 0 0 0.35rem rgba(246, 169, 37, 0.56);
+  }
+
+  .fuel-block.low .fuel-bar.active {
     border-color: rgba(255, 80, 58, 0.86);
     background: #f0503a;
+    box-shadow: 0 0 0.35rem rgba(240, 80, 58, 0.58);
   }
 
   .fuel-icon {
@@ -237,6 +283,21 @@
     grid-column: 3;
     color: #f4df36;
     filter: drop-shadow(0 0 0.25rem rgba(244, 223, 54, 0.6));
+  }
+
+  .fuel-block.high .fuel-icon {
+    color: #63d471;
+    filter: drop-shadow(0 0 0.25rem rgba(99, 212, 113, 0.62));
+  }
+
+  .fuel-block.warn .fuel-icon {
+    color: #f6a925;
+    filter: drop-shadow(0 0 0.25rem rgba(246, 169, 37, 0.62));
+  }
+
+  .fuel-block.low .fuel-icon {
+    color: #f0503a;
+    filter: drop-shadow(0 0 0.25rem rgba(240, 80, 58, 0.64));
   }
 
   .rpm-row {
@@ -258,9 +319,9 @@
   }
 
   .rpm-tick.active {
-    border-color: rgba(247, 219, 65, 0.82);
-    background: #f0d53a;
-    box-shadow: 0 0 0.32rem rgba(240, 213, 58, 0.48);
+    border-color: rgba(255, 255, 255, 0.88);
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 0 0.32rem rgba(255, 255, 255, 0.46);
   }
 
   .rpm-tick.active.hot {
@@ -294,6 +355,19 @@
 
   .status-icon.indicator.active {
     color: #dadada;
+    animation: indicator-flash 1s step-end infinite;
+    animation-delay: -0.1s;
+    filter: drop-shadow(0 0 0.28rem rgba(218, 218, 218, 0.62));
+  }
+
+  @keyframes indicator-flash {
+    0%, 49% {
+      opacity: 1;
+    }
+
+    50%, 100% {
+      opacity: 0.18;
+    }
   }
 
   .status-icon.warning {
@@ -302,6 +376,11 @@
 
   .status-icon.danger {
     color: #eb4d3b;
+  }
+
+  .status-icon.secured {
+    color: #63d471;
+    filter: drop-shadow(0 0 0.24rem rgba(99, 212, 113, 0.58));
   }
 
   .status-icon.active {

@@ -16,9 +16,12 @@ type vehicleStatusType = {
   rpm: number,
   speed: number,
   speedUnit: string,
+  vehicleName: string,
   show: boolean,
+  showVehicleName: boolean,
   showAltitude: boolean,
   showSeatBelt: boolean,
+  seatbeltOn: boolean,
   showSquare: boolean,
   showSquareBorder: boolean,
   ShowCircle: boolean,
@@ -47,6 +50,7 @@ type vehicleHudUpdateMessageType = {
   cruise: boolean,
   nitroActive: boolean,
   speedUnit: string,
+  vehicleName: string,
 }
 
 type vehicleHudShowMessage = {
@@ -72,9 +76,12 @@ const store = () => {
     rpm: 0,
     speed: 0,
     speedUnit: "MPH",
+    vehicleName: "",
     show: false,
+    showVehicleName: false,
     showAltitude: false,
     showSeatBelt: false,
+    seatbeltOn: false,
     showSquare: false,
     showSquareBorder: false,
     ShowCircle: false,
@@ -83,17 +90,27 @@ const store = () => {
   }
 
   const { subscribe, set, update } = writable(vehicleStatusState);
+  let vehicleNameTimer: ReturnType<typeof setTimeout> | undefined;
 
   const methods = {
     receiveShowMessage(data: vehicleHudShowMessage) {
       update(state => {
         state.show = data.show;
         state.showSeatBelt = data.seatbelt;
+        state.seatbeltOn = data.seatbelt;
+        if (!data.show) {
+          state.showVehicleName = false;
+          if (vehicleNameTimer) clearTimeout(vehicleNameTimer);
+        }
         return state;
       })
     },
     receiveUpdateMessage(data: vehicleHudUpdateMessageType) {
+      let revealVehicleName = false;
       update(state => {
+        revealVehicleName = data.show
+          && Boolean(data.vehicleName)
+          && (!state.show || state.vehicleName !== data.vehicleName);
         state.show = data.show;
         state.speed = data.speed;
         state.altitude = data.altitude;
@@ -108,7 +125,10 @@ const store = () => {
         state.cruise = data.cruise ?? false;
         state.nitroActive = data.nitroActive ?? false;
         state.speedUnit = data.speedUnit || "MPH";
+        state.vehicleName = data.vehicleName || "";
+        if (revealVehicleName) state.showVehicleName = true;
         state.showSeatBelt = data.showSeatbelt && !data.seatbelt;
+        state.seatbeltOn = data.seatbelt;
         state.showAltitude = data.showAltitude;
         state.showSquareBorder = data.showSquareB;
         state.showCircleBorder = data.showCircleB;
@@ -127,6 +147,16 @@ const store = () => {
 
         return state;
       });
+
+      if (revealVehicleName) {
+        if (vehicleNameTimer) clearTimeout(vehicleNameTimer);
+        vehicleNameTimer = setTimeout(() => {
+          update(state => {
+            state.showVehicleName = false;
+            return state;
+          });
+        }, 4200);
+      }
     }
   }
 
